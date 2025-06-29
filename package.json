@@ -1,6 +1,6 @@
 {
 	"name": "obsidian-checkbox-bulk-dates",
-	"version": "0.0.1",
+	"version": "0.0.2",
 	"description": "Adds creation dates to unchecked checkboxes, either retroactively on-command or in real-time. Compatible with Tasks plugin",
 	"main": "main.js",
 	"scripts": {

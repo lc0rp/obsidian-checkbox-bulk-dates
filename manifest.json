@@ -1,7 +1,7 @@
 {
 	"id": "checkbox-bulk-dates",
 	"name": "Checkbox Bulk Dates",
-	"version": "0.0.1",
+	"version": "0.0.2",
 	"minAppVersion": "1.6.5",
 	"description": "Adds creation dates to unchecked checkboxes, either retroactively on-command or in real-time. Compatible with Tasks plugin.",
 	"author": "lc0rp",
