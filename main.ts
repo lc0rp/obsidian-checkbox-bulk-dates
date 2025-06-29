@@ -3,11 +3,13 @@ import { App, Plugin, PluginSettingTab, Setting, TFile, moment, Notice, Editor, 
 interface CheckboxBulkDateSettings {
 	enableRealTimeAdding: boolean;
 	useFileCreationDate: boolean;
+	enableDebugLogging: boolean;
 }
 
 const DEFAULT_SETTINGS: CheckboxBulkDateSettings = {
 	enableRealTimeAdding: true,
-	useFileCreationDate: true
+	useFileCreationDate: true,
+	enableDebugLogging: false
 }
 
 const CREATED = "➕";
@@ -18,10 +20,10 @@ export default class CheckboxBulkDatePlugin extends Plugin {
 	async onload() {
 		await this.loadSettings();
 
-		// Command 1: Add missing created dates to current file
+		// Command 1: Add missing creation dates to current file
 		this.addCommand({
 			id: 'add-created-file',
-			name: 'Add missing created dates (file)',
+			name: 'Add missing creation dates (file)',
 			editorCallback: (editor: Editor, view: MarkdownView) => {
 				const content = editor.getValue();
 				const newContent = this.addCreatedToText(content, view.file);
@@ -30,28 +32,70 @@ export default class CheckboxBulkDatePlugin extends Plugin {
 				if (addedCount > 0) {
 					editor.setValue(newContent);
 					new Notice(`Added ${addedCount} created date${addedCount > 1 ? 's' : ''} to current file`);
-					console.log(`Added ${addedCount} created dates to current file`);
+					if (this.settings.enableDebugLogging) {
+						console.log(`Added ${addedCount} creation dates to current file`);
+					}
 				} else {
-					new Notice('No unchecked checkboxes without created dates found');
+					new Notice('No unchecked checkboxes without creation dates found');
 				}
 			}
 		});
 
-		// Command 2: Add missing created dates to entire vault
+		// Command 2: Add missing creation dates to entire vault
 		this.addCommand({
 			id: 'add-created-vault',
-			name: 'Add missing created dates (vault)',
+			name: 'Add missing creation dates (vault)',
 			callback: async () => {
 				const files = this.app.vault.getMarkdownFiles();
 				let totalCount = 0;
+				let processedFiles = 0;
 				
-				for (const file of files) {
-					const count = await this.fixFile(file);
-					totalCount += count;
+				// Show initial progress
+				const initialNotice = new Notice(`Processing ${files.length} files...`, 0);
+				
+				try {
+					// Process files in batches to prevent UI freezing
+					const batchSize = 10;
+					for (let i = 0; i < files.length; i += batchSize) {
+						const batch = files.slice(i, i + batchSize);
+						
+						// Process batch asynchronously
+						const batchPromises = batch.map(async (file) => {
+							try {
+								const count = await this.fixFile(file);
+								processedFiles++;
+								return count;
+							} catch (error) {
+								console.error(`Error processing file ${file.path}:`, error);
+								processedFiles++;
+								return 0;
+							}
+						});
+						
+						const batchCounts = await Promise.all(batchPromises);
+						totalCount += batchCounts.reduce((sum, count) => sum + count, 0);
+						
+						// Update progress every batch
+						if (files.length > 20) {
+							initialNotice.setMessage(`Processed ${processedFiles}/${files.length} files... (${totalCount} dates added)`);
+						}
+						
+						// Yield control to prevent UI freezing
+						await new Promise(resolve => setTimeout(resolve, 10));
+					}
+					
+					// Hide progress notice and show final result
+					initialNotice.hide();
+					new Notice(`Added ${totalCount} created date${totalCount > 1 ? 's' : ''} across ${processedFiles} files`);
+					
+					if (this.settings.enableDebugLogging) {
+						console.log(`Added ${totalCount} creation dates across ${processedFiles} files`);
+					}
+				} catch (error) {
+					initialNotice.hide();
+					console.error('Error during vault-wide processing:', error);
+					new Notice('Error occurred while processing vault. Check console for details.');
 				}
-				
-				new Notice(`Added ${totalCount} created date${totalCount > 1 ? 's' : ''} across vault`);
-				console.log(`Added ${totalCount} created dates across vault`);
 			}
 		});
 
@@ -113,27 +157,35 @@ export default class CheckboxBulkDatePlugin extends Plugin {
 		return addedCount;
 	}
 
-	// Helper method to add created dates to text
+	// Helper method to add creation dates to text
 	private addCreatedToText(text: string, file: TFile | null = null): string {
 		const dateToUse = this.getDateForFile(file);
 		
-		console.log('Processing text for created dates...');
-		console.log('Original text:', text);
-		console.log('Date to use:', dateToUse);
+		if (this.settings.enableDebugLogging) {
+			console.log('Processing text for creation dates...');
+			console.log('Original text:', text);
+			console.log('Date to use:', dateToUse);
+		}
 		
 		const result = text.replace(
 			/^(\s*[-*+]\s+\[ \])\s+(?!.*➕\s*\d{4}-\d{2}-\d{2})(.*)$/gm,
 			(match, taskPrefix, rest) => {
-				console.log('Found matching line:', match);
-				console.log('Task prefix:', taskPrefix);
-				console.log('Rest:', rest);
+				if (this.settings.enableDebugLogging) {
+					console.log('Found matching line:', match);
+					console.log('Task prefix:', taskPrefix);
+					console.log('Rest:', rest);
+				}
 				const replacement = `${taskPrefix} ${rest} ${CREATED} ${dateToUse}`;
-				console.log('Replacement:', replacement);
+				if (this.settings.enableDebugLogging) {
+					console.log('Replacement:', replacement);
+				}
 				return replacement;
 			}
 		);
 		
-		console.log('Result text:', result);
+		if (this.settings.enableDebugLogging) {
+			console.log('Result text:', result);
+		}
 		return result;
 	}
 
@@ -155,9 +207,11 @@ export default class CheckboxBulkDatePlugin extends Plugin {
 		const oldMatches = oldText.match(/➕ \d{4}-\d{2}-\d{2}/g) || [];
 		const newMatches = newText.match(/➕ \d{4}-\d{2}-\d{2}/g) || [];
 		
-		console.log('Old matches count:', oldMatches.length);
-		console.log('New matches count:', newMatches.length);
-		console.log('Difference:', newMatches.length - oldMatches.length);
+		if (this.settings.enableDebugLogging) {
+			console.log('Old matches count:', oldMatches.length);
+			console.log('New matches count:', newMatches.length);
+			console.log('Difference:', newMatches.length - oldMatches.length);
+		}
 		
 		return newMatches.length - oldMatches.length;
 	}
@@ -188,13 +242,15 @@ class CheckboxBulkDateSettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName('Enable real-time adding')
-			.setDesc('Automatically add created dates when creating new checkboxes')
+			.setDesc('Automatically add creation dates when creating new checkboxes')
 			.addToggle(toggle => toggle
 				.setValue(this.plugin.settings.enableRealTimeAdding)
 				.onChange(async (value) => {
 					this.plugin.settings.enableRealTimeAdding = value;
 					await this.plugin.saveSettings();
-					console.log('Real-time adding setting changed to:', value);
+					if (this.plugin.settings.enableDebugLogging) {
+						console.log('Real-time adding setting changed to:', value);
+					}
 				}));
 
 		new Setting(containerEl)
@@ -206,6 +262,16 @@ class CheckboxBulkDateSettingTab extends PluginSettingTab {
 				.setValue(this.plugin.settings.useFileCreationDate ? 'creation' : 'modified')
 				.onChange(async (value) => {
 					this.plugin.settings.useFileCreationDate = (value === 'creation');
+					await this.plugin.saveSettings();
+				}));
+
+		new Setting(containerEl)
+			.setName('Enable debug logging')
+			.setDesc('Enable detailed console logging for troubleshooting (requires Developer Tools)')
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.enableDebugLogging)
+				.onChange(async (value) => {
+					this.plugin.settings.enableDebugLogging = value;
 					await this.plugin.saveSettings();
 				}));
 	}

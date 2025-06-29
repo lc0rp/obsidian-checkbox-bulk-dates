@@ -1,5 +1,5 @@
 {
-	"name": "obsidian-bulk-creation-date",
+	"name": "obsidian-checkbox-bulk-dates",
 	"version": "0.0.1",
 	"description": "Adds creation dates to unchecked checkboxes, either retroactively on-command or in real-time. Compatible with Tasks plugin",
 	"main": "main.js",
@@ -7,11 +7,11 @@
 		"dev": "node esbuild.config.mjs",
 		"build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
 		"version": "node version-bump.mjs && git add manifest.json versions.json",
-		"lint:md": "markdownlint *.md specs/*.md",
-		"lint:md:fix": "markdownlint --fix *.md specs/*.md"
+		"lint:md": "markdownlint *.md docs/*.md",
+		"lint:md:fix": "markdownlint --fix *.md docs/*.md"
 	},
 	"keywords": [],
-	"author": "",
+	"author": "lc0rp",
 	"license": "MIT",
 	"devDependencies": {
 		"@types/node": "^16.11.6",
