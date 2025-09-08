@@ -1,9 +1,9 @@
 import { App, Plugin, PluginSettingTab, Setting, TFile, moment, Notice, Editor, MarkdownView } from 'obsidian';
 
 interface CheckboxBulkDateSettings {
-	enableRealTimeAdding: boolean;
-	useFileCreationDate: boolean;
-	enableDebugLogging: boolean;
+        enableRealTimeAdding: boolean;
+        useFileCreationDate: boolean;
+        enableDebugLogging: boolean;
 }
 
 const DEFAULT_SETTINGS: CheckboxBulkDateSettings = {
@@ -15,7 +15,13 @@ const DEFAULT_SETTINGS: CheckboxBulkDateSettings = {
 const CREATED = "➕";
 
 export default class CheckboxBulkDatePlugin extends Plugin {
-	settings: CheckboxBulkDateSettings;
+        settings: CheckboxBulkDateSettings;
+
+        private debug(...args: any[]): void {
+                if (this.settings.enableDebugLogging) {
+                        console.debug(...args);
+                }
+        }
 
 	async onload() {
 		await this.loadSettings();
@@ -25,19 +31,17 @@ export default class CheckboxBulkDatePlugin extends Plugin {
 			id: 'add-created-file',
 			name: 'Add missing creation dates (file)',
 			editorCallback: (editor: Editor, view: MarkdownView) => {
-				const content = editor.getValue();
-				const newContent = this.addCreatedToText(content, view.file);
-				const addedCount = this.countAddedDates(content, newContent);
+                                const content = editor.getValue();
+                                const newContent = this.addCreatedToText(content, view.file);
+                                const addedCount = this.countAddedDates(content, newContent);
 				
 				if (addedCount > 0) {
 					editor.setValue(newContent);
-					new Notice(`Added ${addedCount} created date${addedCount > 1 ? 's' : ''} to current file`);
-					if (this.settings.enableDebugLogging) {
-						console.log(`Added ${addedCount} creation dates to current file`);
-					}
-				} else {
-					new Notice('No unchecked checkboxes without creation dates found');
-				}
+                                        new Notice(`Added ${addedCount} created date${addedCount > 1 ? 's' : ''} to current file`);
+                                        this.debug(`Added ${addedCount} creation dates to current file`);
+                                } else {
+                                        new Notice('No unchecked checkboxes without creation dates found');
+                                }
 			}
 		});
 
@@ -86,14 +90,11 @@ export default class CheckboxBulkDatePlugin extends Plugin {
 					
 					// Hide progress notice and show final result
 					initialNotice.hide();
-					new Notice(`Added ${totalCount} created date${totalCount > 1 ? 's' : ''} across ${processedFiles} files`);
-					
-					if (this.settings.enableDebugLogging) {
-						console.log(`Added ${totalCount} creation dates across ${processedFiles} files`);
-					}
-				} catch (error) {
-					initialNotice.hide();
-					console.error('Error during vault-wide processing:', error);
+                                        new Notice(`Added ${totalCount} created date${totalCount > 1 ? 's' : ''} across ${processedFiles} files`);
+                                        this.debug(`Added ${totalCount} creation dates across ${processedFiles} files`);
+                                } catch (error) {
+                                        initialNotice.hide();
+                                        console.error('Error during vault-wide processing:', error);
 					new Notice('Error occurred while processing vault. Check console for details.');
 				}
 			}
@@ -158,36 +159,15 @@ export default class CheckboxBulkDatePlugin extends Plugin {
 	}
 
 	// Helper method to add creation dates to text
-	private addCreatedToText(text: string, file: TFile | null = null): string {
-		const dateToUse = this.getDateForFile(file);
-		
-		if (this.settings.enableDebugLogging) {
-			console.log('Processing text for creation dates...');
-			console.log('Original text:', text);
-			console.log('Date to use:', dateToUse);
-		}
-		
-		const result = text.replace(
-			/^(\s*[-*+]\s+\[ \])\s+(?!.*➕\s*\d{4}-\d{2}-\d{2})(.*)$/gm,
-			(match, taskPrefix, rest) => {
-				if (this.settings.enableDebugLogging) {
-					console.log('Found matching line:', match);
-					console.log('Task prefix:', taskPrefix);
-					console.log('Rest:', rest);
-				}
-				const replacement = `${taskPrefix} ${rest} ${CREATED} ${dateToUse}`;
-				if (this.settings.enableDebugLogging) {
-					console.log('Replacement:', replacement);
-				}
-				return replacement;
-			}
-		);
-		
-		if (this.settings.enableDebugLogging) {
-			console.log('Result text:', result);
-		}
-		return result;
-	}
+        private addCreatedToText(text: string, file: TFile | null = null): string {
+                const dateToUse = this.getDateForFile(file);
+
+                const result = text.replace(
+                        /^(\s*[-*+]\s+\[ \])\s+(?!.*➕\s*\d{4}-\d{2}-\d{2})(.*)$/gm,
+                        (_match, taskPrefix, rest) => `${taskPrefix} ${rest} ${CREATED} ${dateToUse}`
+                );
+                return result;
+        }
 
 	// Helper method to get the appropriate date for a file
 	private getDateForFile(file: TFile | null): string {
@@ -207,14 +187,8 @@ export default class CheckboxBulkDatePlugin extends Plugin {
 		const oldMatches = oldText.match(/➕ \d{4}-\d{2}-\d{2}/g) || [];
 		const newMatches = newText.match(/➕ \d{4}-\d{2}-\d{2}/g) || [];
 		
-		if (this.settings.enableDebugLogging) {
-			console.log('Old matches count:', oldMatches.length);
-			console.log('New matches count:', newMatches.length);
-			console.log('Difference:', newMatches.length - oldMatches.length);
-		}
-		
-		return newMatches.length - oldMatches.length;
-	}
+                return newMatches.length - oldMatches.length;
+        }
 
 	async loadSettings() {
 		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
@@ -243,15 +217,12 @@ class CheckboxBulkDateSettingTab extends PluginSettingTab {
 		new Setting(containerEl)
 			.setName('Enable real-time adding')
 			.setDesc('Automatically add creation dates when creating new checkboxes')
-			.addToggle(toggle => toggle
-				.setValue(this.plugin.settings.enableRealTimeAdding)
-				.onChange(async (value) => {
-					this.plugin.settings.enableRealTimeAdding = value;
-					await this.plugin.saveSettings();
-					if (this.plugin.settings.enableDebugLogging) {
-						console.log('Real-time adding setting changed to:', value);
-					}
-				}));
+                                .addToggle(toggle => toggle
+                                        .setValue(this.plugin.settings.enableRealTimeAdding)
+                                        .onChange(async (value) => {
+                                                this.plugin.settings.enableRealTimeAdding = value;
+                                                await this.plugin.saveSettings();
+                                        }));
 
 		new Setting(containerEl)
 			.setName('Date source')
